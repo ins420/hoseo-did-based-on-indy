@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add genesis steward</title>
+</head>
+<body>
+    <h1>Add genesis steward</h1>
+    <hr>
+    <div>
+        <form method="post">
+            <label>
+                Steward name
+                <input name="steward_name" type="text" placeholder="Steward Name">
+            </label>
+            <br>
+            <input type="submit" value="ADD">
+            <button type="button" onclick="location.href='/trustee_home'">
+                Back
+            </button>
+        </form>
+    </div>
+    <p>{{error}}</p>
+    <hr>
+    <p>[List of added stewards]</p>
+    <div>
+        <table border='1'>
+            <tr>
+                <th>Steward name</th>
+                <th>Steward seed</th>
+            </tr>
+            {% for steward_def in steward_defs %}
+            <tr>
+                <td>{{steward_def["name"]}}</td>
+                <td>{{steward_def["sigseed"].decode("utf-8")}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add genesis node</title>
+</head>
+<body>
+    <h1>Add genesis node</h1>
+    <hr>
+    <div>
+        <form method="post">
+            <label>
+                Node name
+                <input name="node_name" type="text" placeholder="Node name">
+            </label>
+            <br>
+            <label>
+                Node IP
+                <input name="node_ip" type="text" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" placeholder="127.0.0.1">
+            </label>
+            <br>
+            <label>
+                Node-Node port
+                <input name="node_port" type="text" pattern="(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|5\d{4}|[0-9]\d{0,3})" placeholder="0-65535">
+            </label>
+            <br>
+            <label>
+                Node-Client port
+                <input name="client_port" type="text" pattern="(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|5\d{4}|[0-9]\d{0,3})$" placeholder="0-65535">
+            </label>
+            <br>
+            <label>
+                Steward
+                <input name="steward" type="text" placeholder="Steward name">
+            </label>
+            <br>
+            <input type="submit" value="ADD">
+            <button type="button" onclick="location.href='/trustee_home'">
+                Back
+            </button>
+        </form>
+    </div>
+    <p>{{error}}</p>
+    <hr>
+    <p>[List of available stewards]</p>
+    <div>
+        <table border='1'>
+            <tr>
+                <th>Steward name</th>
+                <th>Steward seed</th>
+            </tr>
+            {% for steward_def in steward_defs %}
+            <tr>
+                <td>{{steward_def["name"]}}</td>
+                <td>{{steward_def["sigseed"].decode("utf-8")}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <p>[List of added nodes]</p>
+    <div>
+        <table border='1'>
+            <tr>
+                <th>Node name</th>
+                <th>Node IP</th>
+                <th>Node-Node port</th>
+                <th>Node-Client port</th>
+                <th>Node seed</th>
+            </tr>
+            {% for node_def in node_defs %}
+            <tr>
+                <td>{{node_def["name"]}}</td>
+                <td>{{node_def["ip"]}}</td>
+                <td>{{node_def["port"]}}</td>
+                <td>{{node_def["client_port"]}}</td>
+                <td>{{node_def["sigseed"].decode("utf-8")}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
