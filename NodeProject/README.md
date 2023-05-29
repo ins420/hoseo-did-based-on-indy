@@ -18,6 +18,11 @@ sudo apt-get install -y indy-node
 ```
 ```commandline
 sudo su indy
+vim /etc/indy/indy_config.py
+NETWORK_NAME = '{network name}'
+```
+ex) NETWORK_NAME = 'TEST_NETWORK'
+```commandline
 init_indy_node Test_Node1 127.0.0.1 9701 127.0.0.1 9702 aaaaseedbbbbseedccccseedddddseed
 ```
 ex) init_indy_node {name} {ip} {node-node port} {ip} {node-client port} {seed}
