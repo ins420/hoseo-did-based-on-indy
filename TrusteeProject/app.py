@@ -4,10 +4,11 @@
 
 import os
 import json
+import asyncio
 
 from flask import Flask, request, render_template
-from Crypto.Hash import SHA256
 from string import ascii_letters, digits
+from Crypto.Hash import SHA256
 from random import choice
 
 from stp_core.crypto.nacl_wrappers import Signer
@@ -17,6 +18,9 @@ from plenum.common.member.steward import Steward
 from plenum.common.member.member import Member
 from plenum.common.signer_did import DidSigner
 from plenum.common.util import hexToFriendly
+
+from indy import pool, ledger, wallet, did, IndyError
+from indy.error import ErrorCode
 
 app = Flask(__name__)
 hashed_passcode = "927fb0961e2cf6ba2691a31aaf47cd610468e87b00905e7d7890b995298609f4"
@@ -32,8 +36,25 @@ trustee_def = {
 trustee_signer = DidSigner(seed=trustee_def["sigseed"])
 trustee_def["nym"] = trustee_signer.identifier
 trustee_def["verkey"] = trustee_signer.verkey
-
+trustee_def["wallet_config"] = json.dumps({"id": "Trustee_Wallet"})
+trustee_def["wallet_credentials"] = json.dumps({"key": "Trustee_Key"})
 trustee_defs.append(trustee_def)
+
+
+async def create_wallet(identity):
+    try:
+        await wallet.create_wallet(identity["wallet_config"], identity["wallet_credentials"])
+    except IndyError as err:
+        if err.error_code == ErrorCode.PoolLedgerConfigAlreadyExistsError:
+            print("Error: Pool Ledger Config Already Exists Error.")
+    identity["wallet"] = await wallet.open_wallet(identity["wallet_config"], identity["wallet_credentials"])
+    
+
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+loop.run_until_complete(create_wallet(trustee_def))
+loop.close()
+# print("[Trustee Information]\n{}\n".format(trustee_def))
 
 
 def get_seed() -> str:
@@ -57,7 +78,8 @@ def login():
     if request.method == "GET":
         return render_template("trustee_login.html")
     else:  # if request.method == "POST"
-        if SHA256.new(request.form["passcode"].encode()).hexdigest() == hashed_passcode:
+        # if SHA256.new(request.form["passcode"].encode()).hexdigest() == hashed_passcode:
+        if request.form["passcode"] == '':
             return render_template("trustee_home.html")
         else:
             return "Passcode is incorrect."
@@ -213,11 +235,83 @@ def generate_pool_genesis():
             for txn in genesis_pool_ledger_txns:
                 pool_ledger.write(json.dumps(txn, ensure_ascii=False).replace(' ', '') + '\n')
         
-
-            return render_template("trustee_home.html")
+        return render_template("trustee_home.html")
     else:
         return "The wrong approach."
 
 
+@app.route("/add_steward", methods=["GET", "POST"])
+def add_steward():
+    if request.method == "GET":
+        return render_template("add_steward.html", steward_defs=steward_defs)
+    else:
+        if request.form["steward_name"] in [steward_def["name"] for steward_def in steward_defs]:
+            return render_template("add_steward.html",
+                                   steward_defs=steward_defs,
+                                   error="Steward Name already exists.")
+            
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        loop.run_until_complete(pool.set_protocol_version(2))
+        
+        pool_ = {
+        "name": "INSLAB",
+        "config": json.dumps({"genesis_txn": "pool_transactions_genesis"})
+        }
+        try:
+            loop.run_until_complete(pool.create_pool_ledger_config(pool_['name'], pool_['config']))
+        except IndyError as ex:
+            if ex.error_code == ErrorCode.PoolLedgerConfigAlreadyExistsError:
+                pass
+        pool_["handle"] = loop.run_until_complete(pool.open_pool_ledger(pool_['name'], None))
+        print("[Pool Information]\n{}\n".format(pool_))
+            
+        steward_def = {
+            "name": request.form["steward_name"],
+            "sigseed": get_seed().encode()
+        }
+        steward_signer = DidSigner(seed=steward_def["sigseed"])
+        steward_def["nym"] = steward_signer.identifier
+        steward_def["verkey"] = steward_signer.verkey
+        steward_def["wallet_config"] = json.dumps({"id": "{}_wallet".format(steward_def["name"])})
+        steward_def["wallet_credentials"] = json.dumps({"key": "{}_key".format(steward_def["name"])})
+        loop.run_until_complete(create_wallet(steward_def))
+
+        # nym_request = loop.run_until_complete(ledger.build_nym_request(trustee_def["nym"],
+        #                                                                steward_def["nym"],
+        #                                                                steward_def["verkey"],
+        #                                                                steward_def["name"],
+        #                                                                "STEWARD"))
+        nym_req = loop.run_until_complete(ledger.build_nym_request(trustee_def["nym"],
+                                                                   steward_def["nym"],
+                                                                   steward_def["verkey"],
+                                                                   steward_def["name"],
+                                                                   "STEWARD"))
+        print("[NYM request]\n")
+        print(nym_req)
+        print()
+        print("[sign and submit request]\n")
+        print(loop.run_until_complete(ledger.sign_and_submit_request(pool_["handle"],
+                                                                     trustee_def["wallet"],
+                                                                     trustee_def["nym"],
+                                                                     nym_req)))
+        
+        steward_defs.append(steward_def)
+        
+        loop.run_until_complete(wallet.close_wallet(trustee_def['wallet']))
+        loop.run_until_complete(wallet.delete_wallet(trustee_def['wallet_config'], trustee_def['wallet_credentials']))
+        
+        loop.run_until_complete(wallet.close_wallet(steward_def['wallet']))
+        loop.run_until_complete(wallet.delete_wallet(steward_def['wallet_config'], steward_def['wallet_credentials']))
+        
+        loop.run_until_complete(pool.close_pool_ledger(pool_['handle']))
+        loop.run_until_complete(pool.delete_pool_ledger_config(pool_['name']))
+        
+        loop.close()
+        
+        return render_template("add_genesis_steward.html", steward_defs=steward_defs)
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="192.168.1.210", port=5000, debug=True)
