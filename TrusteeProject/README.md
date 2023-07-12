@@ -10,12 +10,17 @@
 ```commandline
 sudo apt-get update
 sudo apt-get upgrade -y
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
 ```
 ```commandline
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
-sudo add-apt-repository "deb https://repo.sovrin.org/deb xential stable"
+sudo add-apt-repository "deb https://repo.sovrin.org/deb xenial stable"
 sudo apt-get update
 sudo apt-get install -y indy-node
+```
+```commandline
+sudo add-apt-repository "deb https://repo.sovrin.org/sdk/deb xenial stable"
+sudo apt-get update
+sudo apt-get install -y libindy
 ```
 ### [Python3]
 ```commandline
